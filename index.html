@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Simple AI Demo: XOR Neural Network</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+  body {
+    background: linear-gradient(135deg, #6e8efb, #a777e3);
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+  }
+  .container {
+    background: rgba(0,0,0,0.5);
+    border-radius: 12px;
+    padding: 2rem;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+  }
+  h1 {
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    font-size: 2rem;
+  }
+  p {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    font-weight: 400;
+    font-size: 1rem;
+  }
+  .inputs {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-bottom: 1rem;
+  }
+  .checkbox-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  label {
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+  }
+  input[type="checkbox"] {
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+  }
+  button {
+    background-color: #7b61ff;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 1rem;
+    padding: 0.75rem 2rem;
+    transition: background-color 0.3s ease;
+    margin-bottom: 1rem;
+  }
+  button:hover {
+    background-color: #924aff;
+  }
+  .output {
+    margin-top: 1rem;
+    font-weight: 600;
+    font-size: 1.5rem;
+    letter-spacing: 0.05em;
+  }
+  footer {
+    margin-top: 2rem;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.7);
+  }
+  a {
+    color: #a9a1ff;
+    text-decoration: none;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h1>Simple AI Demo</h1>
+    <p>Neural network learning XOR function</p>
+    <div class="inputs">
+      <div class="checkbox-container">
+        <label for="input1">Input 1</label>
+        <input type="checkbox" id="input1" />
+      </div>
+      <div class="checkbox-container">
+        <label for="input2">Input 2</label>
+        <input type="checkbox" id="input2" />
+      </div>
+    </div>
+    <button id="predictBtn">Predict</button>
+    <div class="output" id="output">Output: ?</div>
+    <button id="trainBtn">Train Model</button>
+    <div id="trainStatus"></div>
+    <footer>
+      Created by AI Demo. Source: Simple neural network in JavaScript.
+    </footer>
+  </div>
+<script>
+  // Simple neural network with 2 inputs, 2 hidden neurons, 1 output
+  // Uses sigmoid activation, trained with backpropagation, fixed dataset XOR
+
+  class NeuralNetwork {
+    constructor(input_nodes, hidden_nodes, output_nodes, learning_rate = 0.5) {
+      this.input_nodes = input_nodes;
+      this.hidden_nodes = hidden_nodes;
+      this.output_nodes = output_nodes;
+      this.lr = learning_rate;
+
+      // weights
+      this.weights_ih = new Array(this.hidden_nodes).fill(0).map(() => new Array(this.input_nodes).fill(0).map(() => Math.random() * 2 -1));
+      this.weights_ho = new Array(this.output_nodes).fill(0).map(() => new Array(this.hidden_nodes).fill(0).map(() => Math.random() * 2 -1));
+      // biases
+      this.bias_h = new Array(this.hidden_nodes).fill(0).map(() => Math.random()*2 -1);
+      this.bias_o = new Array(this.output_nodes).fill(0).map(() => Math.random()*2 -1);
+    }
+
+    static sigmoid(x) {
+      return 1 / (1 + Math.exp(-x));
+    }
+    static dsigmoid(y) {
+      // derivative sigmoid assuming input y = sigmoid(x)
+      return y * (1 - y);
+    }
+
+    // dot product of weights and inputs + bias, apply activation
+    feedforward(input_array) {
+      // input -> hidden
+      this.hidden = [];
+      for(let i=0; i<this.hidden_nodes; i++){
+        let sum = this.bias_h[i];
+        for (let j=0; j<this.input_nodes; j++){
+          sum += this.weights_ih[i][j] * input_array[j];
+        }
+        this.hidden[i] = NeuralNetwork.sigmoid(sum);
+      }
+      // hidden -> output
+      this.output = [];
+      for(let i=0; i<this.output_nodes; i++){
+        let sum = this.bias_o[i];
+        for(let j=0; j<this.hidden_nodes; j++){
+          sum += this.weights_ho[i][j] * this.hidden[j];
+        }
+        this.output[i] = NeuralNetwork.sigmoid(sum);
+      }
+      return this.output;
+    }
+
+    train(input_array, target_array){
+      // feedforward
+      this.feedforward(input_array);
+
+      // calculate output errors
+      this.output_errors = [];
+      for(let i=0; i<this.output_nodes; i++){
+        this.output_errors[i] = target_array[i] - this.output[i];
+      }
+
+      // gradients for output
+      this.gradients = [];
+      for(let i=0; i<this.output_nodes; i++){
+        this.gradients[i] = this.output_errors[i] * NeuralNetwork.dsigmoid(this.output[i]) * this.lr;
+      }
+
+      // delta weights from hidden to output
+      for(let i=0; i<this.output_nodes; i++){
+        for(let j=0; j<this.hidden_nodes; j++){
+          this.weights_ho[i][j] += this.gradients[i] * this.hidden[j];
+        }
+        this.bias_o[i] += this.gradients[i];
+      }
+
+      // hidden layer errors
+      this.hidden_errors = new Array(this.hidden_nodes).fill(0);
+      for(let i=0; i<this.hidden_nodes; i++){
+        let error = 0;
+        for(let j=0; j<this.output_nodes; j++){
+          error += this.weights_ho[j][i] * this.output_errors[j];
+        }
+        this.hidden_errors[i] = error;
+      }
+
+      // gradients for hidden
+      this.hidden_gradients = new Array(this.hidden_nodes).fill(0);
+      for(let i=0; i<this.hidden_nodes; i++){
+        this.hidden_gradients[i] = this.hidden_errors[i] * NeuralNetwork.dsigmoid(this.hidden[i]) * this.lr;
+      }
+
+      // delta weights from input to hidden
+      for(let i=0; i<this.hidden_nodes; i++){
+        for(let j=0; j<this.input_nodes; j++){
+          this.weights_ih[i][j] += this.hidden_gradients[i] * input_array[j];
+        }
+        this.bias_h[i] += this.hidden_gradients[i];
+      }
+    }
+  }
+
+  const nn = new NeuralNetwork(2, 2, 1, 0.5);
+
+  // training data for XOR
+  const training_data = [
+    { inputs:[0,0], targets:[0] },
+    { inputs:[0,1], targets:[1] },
+    { inputs:[1,0], targets:[1] },
+    { inputs:[1,1], targets:[0] }
+  ];
+
+  const input1El = document.getElementById('input1');
+  const input2El = document.getElementById('input2');
+  const outputEl = document.getElementById('output');
+  const predictBtn = document.getElementById('predictBtn');
+  const trainBtn = document.getElementById('trainBtn');
+  const trainStatusEl = document.getElementById('trainStatus');
+
+  function predict(){
+    const input1 = input1El.checked ? 1 : 0;
+    const input2 = input2El.checked ? 1 : 0;
+    const prediction = nn.feedforward([input1, input2])[0];
+    outputEl.textContent = 'Output: ' + prediction.toFixed(3) + ' (rounded: ' + (prediction>0.5 ? '1' : '0') + ')';
+  }
+
+  async function trainModel(){
+    trainBtn.disabled = true;
+    trainStatusEl.textContent = 'Training model... please wait.';
+
+    // Train for 5000 iterations
+    for(let i=0; i<5000; i++){
+      const data = training_data[Math.floor(Math.random()*training_data.length)];
+      nn.train(data.inputs, data.targets);
+      if(i % 1000 === 0){
+        trainStatusEl.textContent = `Training... ${i}/5000 iterations`;
+        // yield to UI thread so status updates
+        await new Promise(r => setTimeout(r, 10));
+      }
+    }
+    trainStatusEl.textContent = 'Training completed! Now try inputs and predict.';
+    trainBtn.disabled = false;
+  }
+
+  predictBtn.onclick = predict;
+  trainBtn.onclick = trainModel;
+
+  // Initial prediction (untrained)
+  predict();
+</script>
+</body>
+</html>
+
